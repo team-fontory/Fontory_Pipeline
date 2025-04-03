@@ -1,0 +1,22 @@
+decomposition: data/kor/decomposition_DM.json
+n_primals: 68
+
+trainer:
+  resume:
+  work_dir: ./result/dm_kor
+
+# Optimizer settings
+max_iter: 300000
+g_lr: 1e-4
+d_lr: 4e-4
+ac_lr: 1e-4
+
+# Dataloader settings
+dset:
+  loader:
+    batch_size: 4
+    num_workers: 2
+  train:
+    n_in_s: 3
+    n_in_min: 1
+    n_in_max: 4 
