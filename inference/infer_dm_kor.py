@@ -1,95 +1,139 @@
 import argparse
 import os
 import sys
+import logging
 from sconf import Config
 
-from DM.models import Generator # /app/inference/resources/DM/...
-from base.utils import load_reference # /app/inference/resources/base/...
-from inference import infer_DM # /app/inference/resources/inference.py
+from DM.models import Generator
+from base.utils import load_reference
+from inference import infer_DM
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(message)s',
+    handlers=[logging.StreamHandler()]
+)
 
 try:
     from korean_reference_chars import korean_chars as KOREAN_REF_CHARS
 except ImportError as e:
-    print(f"Error importing from korean_reference_chars.py (expected in /app/resource): {e}")
+    logging.error(f"한글 참조 문자 가져오기 오류: {e}")
     sys.exit(1)
 
 import json
 import torch
-import subprocess
 import time
 
 def inference(args):
-    app_base_path = "/app"
-    resources_base_path = os.path.join(app_base_path, "inference", "resources")
+    try:
+        # 리소스 경로 설정
+        app_base_path = "/app"
+        resources_base_path = os.path.join(app_base_path, "inference", "resources")
+        weight_path = os.path.join(resources_base_path, "checkpoints", "last.pth")
+        decomposition_path = os.path.join(resources_base_path, "decomposition_DM.json")
+        gen_chars_path = os.path.join(resources_base_path, "gen_all_chars.json")
+        actual_reference_dir = os.path.join(args.reference_dir, args.font_name)
+        
+        # 모델 하이퍼파라미터
+        n_heads = 3
+        n_comps = 68
+        
+        logging.info(f"추론 시작 - 폰트: {args.font_name}")
+        logging.info(f"출력 디렉토리: {args.output_dir}")
+        logging.info(f"참조 이미지 디렉토리: {actual_reference_dir}")
 
-    weight_path = os.path.join(resources_base_path, "checkpoints", "last.pth")
-    decomposition_path = os.path.join(resources_base_path, "decomposition_DM.json")
-    # config_path = os.path.join(resources_base_path, "cfgs", "DM", "default.yaml")
-    gen_chars_path = os.path.join(resources_base_path, "gen_all_chars.json")
+        # 분해 정보 로드
+        if not os.path.exists(decomposition_path):
+            logging.error(f"분해 정보 파일을 찾을 수 없음: {decomposition_path}")
+            raise FileNotFoundError(f"분해 정보 파일을 찾을 수 없음: {decomposition_path}")
+        
+        logging.debug(f"분해 정보 파일 로드: {decomposition_path}")
+        decomposition = json.load(open(decomposition_path))
+        logging.debug(f"분해 정보 로드 완료: {len(decomposition)} 항목")
 
-    n_heads = 3
-    n_comps = 68
-    ###############################################################
-    print(f"Output directory (container): {args.output_dir}")
-    print(f"Reference directory (container): {args.reference_dir}")
-    print(f"Using weight path: {weight_path}")
-    # print(f"Using config path: {config_path}")
-    print(f"Using decomposition path: {decomposition_path}")
-    print(f"Using gen_chars path: {gen_chars_path}")
+        # 장치 설정 및 모델 초기화
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logging.info(f"사용 장치: {device}")
+        
+        logging.debug(f"모델 초기화 - n_heads: {n_heads}, n_comps: {n_comps}")
+        gen = Generator(n_heads=n_heads, n_comps=n_comps).to(device).eval()
+        logging.debug("모델 초기화 완료")
 
-    # 모델 로딩
-    # if not os.path.exists(config_path):
-    #     raise FileNotFoundError(f"Config file not found at {config_path}. Check cfgs directory and filename.")
-    # cfg = Config(config_path)
+        # 가중치 로드
+        if not os.path.exists(weight_path):
+            logging.error(f"가중치 파일을 찾을 수 없음: {weight_path}")
+            raise FileNotFoundError(f"가중치 파일을 찾을 수 없음: {weight_path}")
+        
+        logging.debug(f"가중치 로드 시작: {weight_path}")
+        weight = torch.load(weight_path, map_location=device, weights_only=False)
+        
+        # 상태 사전 키에 따라 가중치 로드
+        if "generator_ema" in weight:
+            gen.load_state_dict(weight["generator_ema"])
+            logging.debug("'generator_ema' 키에서 가중치 로드 완료")
+        elif "state_dict" in weight:
+            gen.load_state_dict(weight["state_dict"])
+            logging.debug("'state_dict' 키에서 가중치 로드 완료")
+        else:
+            try:
+                gen.load_state_dict(weight)
+                logging.debug("직접 가중치 로드 완료")
+            except RuntimeError as load_err:
+                logging.error(f"가중치 로드 실패. 발견된 키: {weight.keys()}")
+                raise load_err
+        
+        logging.debug("모델 가중치 로드 완료")
 
-    if not os.path.exists(decomposition_path):
-        raise FileNotFoundError(f"Decomposition file not found at {decomposition_path}")
-    decomposition = json.load(open(decomposition_path))
+        # 참조 이미지 로드 설정
+        extension = "jpg"
+        ref_chars = KOREAN_REF_CHARS
+        
+        logging.info(f"참조 이미지 로드: {actual_reference_dir}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    gen = Generator(n_heads=n_heads, n_comps=n_comps).to(device).eval()
+        # 참조 이미지 로드
+        ref_dict, load_img = load_reference(args.reference_dir, extension, ref_chars)
+        
+        if not ref_dict:
+            logging.error(f"참조 이미지를 로드할 수 없음. 참조 디렉토리 확인 필요.")
+            raise ValueError(f"참조 이미지를 로드할 수 없음. 참조 디렉토리 확인 필요.")
+        
+        logging.info(f"참조 이미지 로드 완료: {len(ref_dict[args.font_name])}개 문자")
 
-    if not os.path.exists(weight_path):
-        raise FileNotFoundError(f"Weight file not found at {weight_path}")
-    weight = torch.load(weight_path, map_location=device)
-    
-    gen.load_state_dict(weight["generator_ema"])
-    print("Warning: Could not find standard keys ('generator_ema', 'state_dict') in weight file. Attempting to load directly.")
-    # gen.load_state_dict(weight)
+        # 생성할 문자 목록 로드
+        if not os.path.exists(gen_chars_path):
+            logging.error(f"생성할 문자 목록 파일을 찾을 수 없음: {gen_chars_path}")
+            raise FileNotFoundError(f"생성할 문자 목록 파일을 찾을 수 없음: {gen_chars_path}")
+        
+        logging.debug(f"생성할 문자 목록 로드: {gen_chars_path}")
+        gen_chars = json.load(open(gen_chars_path))
+        logging.info(f"생성할 문자 총 개수: {len(gen_chars)}개")
 
-    ###############################################################
-    extension = "jpg"
-    ref_chars = KOREAN_REF_CHARS
-    ###############################################################
-    print(f"Loading references from (container): {args.reference_dir}")
-    ref_dict, load_img = load_reference(args.reference_dir, extension, ref_chars)
-    print(f"Loaded ref_dict keys: {ref_dict.keys() if isinstance(ref_dict, dict) else 'Not a dict'}")
+        # 추론 실행 설정
+        batch_size = 32
+        logging.debug(f"배치 크기: {batch_size}")
+        
+        # 추론 실행
+        logging.info(f"추론 시작. 출력 경로: {args.output_dir}")
+        start_time = time.time()
+        infer_DM(gen, args.output_dir, gen_chars, ref_dict, load_img, decomposition, batch_size)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        logging.info(f"추론 완료: {elapsed_time:.2f}초 소요")
+        logging.info(f"생성된 이미지: {args.output_dir}/{args.font_name}/*.png")
 
-    ###############################################################
-    if not os.path.exists(gen_chars_path):
-        raise FileNotFoundError(f"Generate characters file not found at {gen_chars_path}")
-    gen_chars = json.load(open(gen_chars_path))
-    print(f"Characters to generate (first 50): {gen_chars[:50] if isinstance(gen_chars, (list, str)) else 'Invalid type'}")
-    print(f"Total characters to generate: {len(gen_chars)}")
+        return args.output_dir
 
-    batch_size = 32 # 
-    print(f"Using minimum batch_size: {batch_size}")
-    ###############################################################
-
-    print(f"Starting inference with filtered characters. Output will be saved to (container): {args.output_dir}")
-    start_time = time.time() # <<< 시간 측정 시작
-    infer_DM(gen, args.output_dir, gen_chars, ref_dict, load_img, decomposition, batch_size) # Pass filtered gen_chars
-    end_time = time.time() # <<< 시간 측정 종료
-    print(f"infer_DM function execution time: {end_time - start_time:.2f} seconds") # <<< 실행 시간 출력
-
-    print(f"Inference finished. Output saved to (container) {args.output_dir}")
-    return args.output_dir
+    except Exception as e:
+        logging.error(f"추론 중 오류 발생: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        sys.exit(1)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run DM inference.")
-    parser.add_argument('--reference_dir', type=str, required=True, help='Directory containing reference images (e.g., /app/result/1_cropped).')
-    parser.add_argument('--output_dir', type=str, required=True, help='Directory to save generated images (e.g., /app/result/2_inference).')
-
+    parser = argparse.ArgumentParser(description="한글 폰트 DM 추론 실행")
+    parser.add_argument('--reference_dir', type=str, required=True, help='참조 이미지가 포함된 기본 디렉토리')
+    parser.add_argument('--output_dir', type=str, required=True, help='생성된 이미지를 저장할 디렉토리')
+    parser.add_argument('--font_name', type=str, required=True, help='처리할 폰트 이름')
+    
     args = parser.parse_args()
     inference(args)

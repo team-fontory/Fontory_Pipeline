@@ -20,4 +20,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY jpg_to_svg_converter.py .
 
 # Set the entrypoint
-ENTRYPOINT ["python", "jpg_to_svg_converter.py"] 
+ENTRYPOINT ["python", "jpg_to_svg_converter.py"]

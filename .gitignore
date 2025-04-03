@@ -1,0 +1,6 @@
+written/**
+result/**
+inference/resources/checkpoints/**
+log/**
+venv/**
+__pycache__/

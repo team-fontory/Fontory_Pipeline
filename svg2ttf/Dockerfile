@@ -24,5 +24,3 @@ RUN chmod +x /app/svg_to_ttf_converter.py
 
 # Set the entrypoint to run the FontForge script
 ENTRYPOINT ["fontforge", "-script", "/app/svg_to_ttf_converter.py"]
-
-# Arguments will be passed by docker run 

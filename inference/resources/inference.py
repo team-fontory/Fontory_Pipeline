@@ -5,6 +5,7 @@ MIT license
 """
 import json
 import argparse
+import logging
 from pathlib import Path
 from itertools import chain
 from sconf import Config
@@ -17,6 +18,11 @@ from torchvision import transforms
 from base.dataset import render, read_font, get_filtered_chars, sample
 from base.utils import save_tensor_to_image, load_reference, load_primals, load_decomposition
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(message)s',
+    handlers=[logging.StreamHandler()] 
+)
 
 TRANSFORM = transforms.Compose([
     transforms.Resize((128, 128)),
@@ -102,24 +108,41 @@ def infer_DM(gen, save_dir, gen_chars, key_ref_dict, load_img, decomposition, ba
     save_dir.mkdir(parents=True, exist_ok=True)
 
     key_gen_dict = {k: gen_chars for k in key_ref_dict}
+    logging.debug(f"추론 키 목록: {list(key_ref_dict.keys())}")
 
     outs = {}
 
     for key, gchars in key_gen_dict.items():
+        logging.info(f"폰트 '{key}' 처리 시작")
         (save_dir / key).mkdir(parents=True, exist_ok=True)
         gen.reset_dynamic_memory()
+        logging.debug(f"동적 메모리 초기화 완료")
 
         ref_chars = key_ref_dict[key]
+        logging.debug(f"참조 문자 수: {len(ref_chars)}개")
+        logging.debug(f"참조 문자 로드 시작")
         ref_imgs = torch.stack([TRANSFORM(load_img(key, c)) for c in ref_chars]).cuda()
         ref_batches = torch.split(ref_imgs, batch_size)
         ref_chars = [ref_chars[i:i+batch_size] for i in range(0, len(ref_chars), batch_size)]
+        logging.debug(f"배치 수: {len(ref_batches)}개")
 
+        logging.info(f"참조 문자 인코딩 시작")
+        batch_count = 0
         for batch, rchars in zip(ref_batches, ref_chars):
+            batch_count += 1
             decs = torch.LongTensor([decomposition[c] for c in rchars]).cuda()
             fids = [0] * len(decs)  # This is okay because now we are playing with only one font.
             gen.encode_write(fids, decs, batch, reset_memory=False)
+            logging.debug(f"배치 {batch_count}/{len(ref_batches)} 인코딩 완료: {len(rchars)}개 문자")
+        logging.info(f"참조 문자 인코딩 완료: 총 {len(ref_chars)}개 문자")
 
+        logging.info(f"새 글리프 생성 시작: {len(gchars)}개")
+        char_count = 0
         for char in gchars:
+            char_count += 1
+            if char_count % 100 == 0:
+                logging.info(f"글리프 생성 진행: {char_count}/{len(gchars)}")
+                
             dec = torch.LongTensor([decomposition[char]]).cuda()
             fid = [0]
             out = gen.read_decode(fid, dec, reset_memory=False)[0].detach().cpu()
@@ -128,6 +151,11 @@ def infer_DM(gen, save_dir, gen_chars, key_ref_dict, load_img, decomposition, ba
 
             path = save_dir / key / f"{char}.png"
             save_tensor_to_image(out, path)
+            
+            if char_count % 1000 == 0:
+                logging.debug(f"글리프 저장 진행 중: {char_count}개 완료")
+
+        logging.info(f"폰트 '{key}' 처리 완료: {char_count}개 글리프 생성")
 
     return outs
 
