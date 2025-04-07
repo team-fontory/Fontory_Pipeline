@@ -7,7 +7,7 @@ from PIL import Image
 
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(message)s',
     handlers=[logging.StreamHandler()]
 )
@@ -61,20 +61,20 @@ def convert_image(input_path, output_path):
     try:
         # 원본 파일 크기 기록
         input_size = os.path.getsize(input_path)
-        logging.info(f"변환 시작: '{os.path.basename(input_path)}' ({input_size:,} 바이트) → '{os.path.basename(output_path)}'")
+        logging.debug(f"변환 시작: '{os.path.basename(input_path)}' ({input_size:,} 바이트) → '{os.path.basename(output_path)}'")
         
         # 이미지를 흑백 BMP로 변환
-        logging.info(f"단계 1/3: BMP 변환 시작")
+        logging.debug(f"단계 1/3: BMP 변환 시작")
         if not convert_to_bmp(input_path, temp_bmp):
             logging.error(f"변환 실패: BMP 변환 단계에서 실패")
             return False
         
         # BMP 파일 크기 기록
         bmp_size = os.path.getsize(temp_bmp)
-        logging.info(f"BMP 변환 완료: {bmp_size:,} 바이트")
+        logging.debug(f"BMP 변환 완료: {bmp_size:,} 바이트")
 
         # Potrace로 BMP를 SVG로 변환
-        logging.info(f"단계 2/3: Potrace SVG 변환 시작")
+        logging.debug(f"단계 2/3: Potrace SVG 변환 시작")
         command = [
             POTRACE_COMMAND,
             '-s',          # SVG 출력
@@ -106,7 +106,7 @@ def convert_image(input_path, output_path):
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             svg_size = os.path.getsize(output_path)
             compression_ratio = bmp_size / svg_size if svg_size > 0 else 0
-            logging.info(f"SVG 생성 완료: {svg_size:,} 바이트 (압축률: {compression_ratio:.2f}x)")
+            logging.debug(f"SVG 생성 완료: {svg_size:,} 바이트 (압축률: {compression_ratio:.2f}x)")
             
             # SVG 파일 분석
             try:
@@ -130,7 +130,7 @@ def convert_image(input_path, output_path):
         return False
     finally:
         # 임시 파일 정리
-        logging.info(f"단계 3/3: 임시 파일 정리")
+        logging.debug(f"단계 3/3: 임시 파일 정리")
         if os.path.exists(temp_bmp):
             try:
                 bmp_size = os.path.getsize(temp_bmp)
@@ -156,14 +156,14 @@ def process_images(input_dir, output_dir):
     # 이미지 파일 찾기
     logging.info(f"이미지 검색: '{input_dir}'에서 이미지 파일 검색 중")
     image_paths = glob.glob(os.path.join(input_dir, '*.jpg'))
-    logging.debug(f"JPG 파일 {len(image_paths)}개 발견")
+    logging.info(f"JPG 파일 {len(image_paths)}개 발견")
     
     jpeg_files = glob.glob(os.path.join(input_dir, '*.jpeg'))
-    logging.debug(f"JPEG 파일 {len(jpeg_files)}개 발견")
+    logging.info(f"JPEG 파일 {len(jpeg_files)}개 발견")
     image_paths.extend(jpeg_files)
     
     png_files = glob.glob(os.path.join(input_dir, '*.png'))
-    logging.debug(f"PNG 파일 {len(png_files)}개 발견")
+    logging.info(f"PNG 파일 {len(png_files)}개 발견")
     image_paths.extend(png_files)
 
     if not image_paths:
@@ -189,14 +189,16 @@ def process_images(input_dir, output_dir):
         input_size = os.path.getsize(img_path)
         total_input_size += input_size
         
-        logging.info(f"이미지 처리 [{index}/{total_files}]: '{os.path.basename(img_path)}' ({input_size:,} 바이트)")
+        if index % 100 == 0:
+                logging.info(f"이미지 처리 진행: {index}/{total_files}")
+        logging.debug(f"이미지 처리 [{index}/{total_files}]: '{os.path.basename(img_path)}' ({input_size:,} 바이트)")
         
         if convert_image(img_path, output_path):
             output_size = os.path.getsize(output_path)
             total_output_size += output_size
             compression_ratio = (input_size / output_size) if output_size > 0 else 0
             
-            logging.info(f"변환 성공: '{os.path.basename(output_path)}' 생성 완료 ({output_size:,} 바이트, 압축비: {compression_ratio:.2f}x)")
+            logging.debug(f"변환 성공: '{os.path.basename(output_path)}' 생성 완료 ({output_size:,} 바이트, 압축비: {compression_ratio:.2f}x)")
             processed_count += 1
         else:
             logging.error(f"변환 실패: '{os.path.basename(img_path)}'")

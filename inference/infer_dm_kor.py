@@ -9,7 +9,7 @@ from base.utils import load_reference
 from inference import infer_DM
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(message)s',
     handlers=[logging.StreamHandler()]
 )

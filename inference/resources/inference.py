@@ -19,7 +19,7 @@ from base.dataset import render, read_font, get_filtered_chars, sample
 from base.utils import save_tensor_to_image, load_reference, load_primals, load_decomposition
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(message)s',
     handlers=[logging.StreamHandler()] 
 )

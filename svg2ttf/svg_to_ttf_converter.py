@@ -11,7 +11,7 @@ import fontforge
 import logging
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(message)s',
     handlers=[logging.StreamHandler()]
 )
@@ -87,7 +87,9 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
     simple_glyphs = []
     
     for svg_index, svg_filename in enumerate(svg_files, 1):
-        logging.info(f"SVG 처리 [{svg_index}/{len(svg_files)}]: '{svg_filename}' 분석 중")
+        if svg_index % 100 == 0:
+            logging.info(f"SVG 처리 진행: {svg_index}/{len(svg_files)}")
+        logging.debug(f"SVG 처리 [{svg_index}/{len(svg_files)}]: '{svg_filename}' 분석 중")
         
         char = get_char_from_filename(svg_filename)
         if char is None:
@@ -99,14 +101,14 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
         unicode_val = -1
         try:
             unicode_val = ord(char)
-            logging.info(f"글리프 처리 시작: '{svg_filename}' -> 문자 '{char}' (U+{unicode_val:04X})")
+            logging.debug(f"글리프 처리 시작: '{svg_filename}' -> 문자 '{char}' (U+{unicode_val:04X})")
             
             # 글리프 슬롯 생성
             logging.debug(f"글리프 슬롯 생성 - 유니코드: U+{unicode_val:04X}")
             glyph = font.createChar(unicode_val)
             
             # SVG 외곽선 가져오기
-            logging.info(f"SVG 외곽선 로드 시작: '{svg_filename}'")
+            logging.debug(f"SVG 외곽선 로드 시작: '{svg_filename}'")
             glyph.importOutlines(svg_filename)
             
             # 외곽선 로드 후 정보 기록
@@ -116,7 +118,7 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
                 contour_count += 1
                 point_count += len(contour)
             
-            logging.info(f"외곽선 로드 완료: 경로 {contour_count}개, 점 {point_count}개")
+            logging.debug(f"외곽선 로드 완료: 경로 {contour_count}개, 점 {point_count}개")
 
             # 외곽선이 제대로 가져와졌는지 확인
             if len(glyph.layers[glyph.activeLayer]) == 0:
@@ -132,7 +134,7 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
                 simple_glyphs.append((char, point_count))
 
             # 글리프 최적화
-            logging.info(f"글리프 최적화 시작: '{char}' (U+{unicode_val:04X})")
+            logging.debug(f"글리프 최적화 시작: '{char}' (U+{unicode_val:04X})")
             
             # 겹침 제거
             logging.debug(f"겹침 제거 시작")
@@ -160,9 +162,9 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
                 contour_count_after += 1
                 point_count_after += len(contour)
             
-            logging.info(f"최적화 완료: 경로 {contour_count_after}개 (변화: {contour_count_after-contour_count:+d}), 점 {point_count_after}개 (변화: {point_count_after-point_count:+d})")
+            logging.debug(f"최적화 완료: 경로 {contour_count_after}개 (변화: {contour_count_after-contour_count:+d}), 점 {point_count_after}개 (변화: {point_count_after-point_count:+d})")
             
-            logging.info(f"글리프 처리 완료: '{char}' (U+{unicode_val:04X})")
+            logging.debug(f"글리프 처리 완료: '{char}' (U+{unicode_val:04X})")
             imported_count += 1
 
         except Exception as e:

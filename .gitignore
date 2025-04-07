@@ -4,3 +4,4 @@ inference/resources/checkpoints/**
 log/**
 venv/**
 __pycache__/
+.env

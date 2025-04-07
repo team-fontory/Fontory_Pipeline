@@ -28,26 +28,42 @@
 
 ```
 pipeline/
-├── main.py             # FastAPI 서버 코드
-├── requirements.txt    # 의존성 패키지
+├── fastAPI/            # FastAPI 애플리케이션 코드
+├── jpg2svg/            # JPG to SVG 변환 관련 코드
+├── svg2ttf/            # SVG to TTF 변환 관련 코드
+├── make_template/      # 템플릿 생성 관련 코드
+├── inference/          # 모델 추론 관련 코드
+├── crop/               # 이미지 크롭 관련 코드
+├── scripts/            # 파이프라인 단계별 실행 스크립트
+├── resource/           # 프로젝트 리소스 파일
 ├── run_server.sh       # 서버 실행 스크립트
 ├── stop_server.sh      # 서버 중지 스크립트
-├── test_request.py     # API 테스트 스크립트
-├── scripts/            # 파이프라인 스크립트
-│   ├── 0_generate_template.sh
-│   ├── 1_crop_glyphs.sh
-│   ├── 2_run_inference.sh
-│   ├── 3_run_jpg2svg.sh
-│   └── 4_run_svg2ttf.sh
-├── result/             # 결과 디렉토리
+├── test_request.py     # 서버 테스트 스크립트
+├── reference_chars.txt # 폰트 생성용 참조 문자 파일
+├── written/            # 사용자 작성 이미지 입력
+├── result/             # 파이프라인 결과 디렉토리
 │   ├── 1_cropped/      # 크롭된 글리프
 │   ├── 2_inference/    # 추론 결과
 │   ├── 3_svg/          # SVG 변환 결과
 │   └── 4_fonts/        # 최종 폰트 파일
-├── written/            # 사용자 작성 이미지 입력
-└── log/                # 로그 파일
+└── log/                # 실행 로그 파일
 ```
 
+### 환경 변수 설정
+
+이 프로젝트는 AWS 서비스와의 연동을 위해 환경 변수를 사용합니다. 프로젝트 루트의 `fastAPI` 디렉토리 내에 `.env` 파일을 생성하고 다음 변수들을 설정해야 합니다:
+
+```dotenv
+AWS_REGION=your_aws_region
+AWS_ACCESS_KEY=your_aws_access_key
+AWS_SECRET_KEY=your_aws_secret_key
+QUEUE_URL=your_sqs_queue_url
+```
+
+- `AWS_REGION`: 사용하는 AWS 리전 (예: `ap-northeast-2`)
+- `AWS_ACCESS_KEY`: AWS IAM 사용자의 액세스 키 ID
+- `AWS_SECRET_KEY`: AWS IAM 사용자의 비밀 액세스 키
+- `QUEUE_URL`: 폰트 생성 요청을 처리할 SQS 큐의 URL
 
 ## 사용 방법
 
@@ -79,7 +95,7 @@ chmod +X ./*.sh
 - FastAPI 서버 실행
 
 
-### 3. API 호출
+### 3-1. API 서버 호출
 
 ```bash
 # 테스트 스크립트 사용
@@ -91,6 +107,21 @@ curl -X POST "http://localhost:8000/font" \
      -d '{"font_name": "MyNewFont"}'
 ```
 
+### 3-2. SQS 큐 직접 호출
+
+API 서버를 통하지 않고 직접 AWS SQS 큐에 메시지를 보내 파이프라인 실행을 트리거할 수도 있습니다. 이는 대량 처리나 다른 시스템과의 연동 시 유용할 수 있습니다.
+
+AWS CLI를 사용하여 메시지를 보낼 수 있습니다. `.env` 파일에 설정된 `QUEUE_URL`을 사용해야 합니다.
+
+(참고: AWS CLI를 사용하려면 AWS 자격 증명 설정이 필요합니다. `aws configure` 명령어나 환경 변수 등을 통해 설정할 수 있습니다.)
+
+```bash
+aws sqs send-message --queue-url YOUR_SQS_QUEUE_URL --message-body '{"font_name": "MySQSFont"}' --message-group-id MyFontGroup
+```
+
+- `YOUR_SQS_QUEUE_URL`: `.env` 파일에 설정한 SQS 큐 URL로 변경해야 합니다.
+- `--message-body`: 폰트 이름을 포함하는 JSON 형식의 메시지 본문입니다.
+- `--message-group-id`: FIFO 큐의 경우 메시지 그룹 ID가 필요합니다. 동일한 그룹 ID 내에서는 메시지 순서가 보장됩니다. 폰트 이름이나 사용자 ID 등 적절한 값을 사용합니다.
 
 ### 4. 서버 중지
 

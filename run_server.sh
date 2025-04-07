@@ -48,8 +48,8 @@ echo "가상 환경 활성화됨"
 
 # 필요한 패키지 설치
 echo "필요한 패키지 설치 중 (requirements.txt)..."
-pip install -r requirements.txt
+pip install -r ./fastAPI/requirements.txt
 
 # API 서버 실행
 echo "FastAPI 서버 실행 중 (uvicorn)..."
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload 
+uvicorn fastAPI.main:app --host 0.0.0.0 --port 8000 --reload 
