@@ -7,11 +7,14 @@ from fastAPI.models import FontRequest
 
 router = APIRouter()
 
+
+# for test
 @router.post("/font")
 async def create_font(request: FontRequest):
     font_name = request.font_name
+    member_id = 1
     request_id = str(uuid.uuid4())
-    logger, log_file = setup_logger(request_id, font_name)
+    logger, log_file = setup_logger(request_id, member_id, font_name)
     logger.info(f"폰트 생성 요청 수신: {font_name})")
     try:
         result_ttf_path, result_woff_path = run_font_pipeline(font_name, request_id, logger)

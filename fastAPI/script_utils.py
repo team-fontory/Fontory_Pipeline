@@ -2,7 +2,7 @@ import os
 import subprocess
 import shlex
 import shutil
-from fastAPI.config import PROJECT_ROOT, RESULT_DIR
+from fastAPI.config import PROJECT_ROOT, RESULT_DIR, WRITTEN_DIR
 
 def run_script(script_path, args, logger, step_name):
     try:
@@ -47,6 +47,7 @@ def run_script(script_path, args, logger, step_name):
 
 def cleanup_intermediate_results(font_name: str, logger):
     dirs_to_delete = [
+        WRITTEN_DIR,
         os.path.join(RESULT_DIR, "1_cropped", font_name),
         os.path.join(RESULT_DIR, "2_inference", font_name),
         os.path.join(RESULT_DIR, "3_svg", font_name)
@@ -56,9 +57,9 @@ def cleanup_intermediate_results(font_name: str, logger):
         if os.path.isdir(dir_path):
             try:
                 shutil.rmtree(dir_path)
-                logger.info(f"  삭제 완료: {dir_path}")
+                logger.info(f"삭제 완료: {dir_path}")
             except Exception as e:
-                logger.error(f"  삭제 실패: {dir_path} - {e}")
+                logger.error(f"삭제 실패: {dir_path} - {e}")
         else:
             logger.info(f"  삭제 건너뜀 (존재하지 않음): {dir_path}")
     logger.info("중간 결과물 정리 완료.")
