@@ -14,9 +14,9 @@ class RequestIdFormatter(logging.Formatter):
             return f"{parts[0]} - [{self.request_id}] - {parts[1]}"
         return formatted
 
-def setup_logger(request_id: str, member_id: str, font_name: str):
+def setup_logger(request_id: str, member_id: str, font_id: str, font_name: str):
     short_id = request_id[:6]
-    log_filename = f"{short_id}_{member_id}_{font_name}.log"
+    log_filename = f"{short_id}_{member_id}_{font_id}_{font_name}.log"
     log_file_path = os.path.join(LOG_DIR, log_filename)
     
     logger = logging.getLogger(request_id)

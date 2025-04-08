@@ -1,11 +1,19 @@
 import os
 import urllib.request
 import urllib.parse
-import uuid
 import logging
 import imghdr
+import boto3
+from fastAPI.config import PROJECT_ROOT, AWS_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
 from typing import Tuple, Optional
-from fastAPI.config import PROJECT_ROOT
+
+# S3 클라이언트 생성
+s3_client = boto3.client(
+    's3',
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY
+)
 
 def is_s3_image_url(url: str) -> bool:
     # Check if URL is from S3
@@ -52,4 +60,37 @@ def download_image_from_s3(memberId: str, font_name:str, url: str, logger: loggi
         
     except Exception as e:
         logger.error(f"Error downloading image from {url}")
+        raise
+
+"""
+Args:
+    file_path: 업로드할 로컬 파일 경로
+    target_name: S3에 저장될 파일 이름
+    bucket_name: 업로드할 S3 버킷 이름
+    logger: 로깅을 위한 logger 객체
+
+Returns:
+    Tuple[bool, str]: 성공 여부와 S3 URL
+"""
+def upload_file_to_s3(file_path: str, target_name: str, bucket_name: str, logger: logging.Logger = None) -> Tuple[bool, str]:
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    
+    if not os.path.exists(file_path):
+        logger.error(f"File does not exist: {file_path}")
+        raise FileNotFoundError(f"File does not exist: {file_path}")
+    
+    try:
+        # 파일 업로드
+        logger.info(f"Uploading file {file_path} to s3://{bucket_name}/{target_name}")
+        s3_client.upload_file(file_path, bucket_name, target_name)
+        
+        # S3 URL 생성
+        s3_url = f"https://{bucket_name}.s3.{AWS_REGION}.amazonaws.com/{target_name}"
+        logger.info(f"File uploaded successfully: {s3_url}")
+        
+        return True, s3_url
+        
+    except Exception as e:
+        logger.error(f"Error uploading file to S3: {str(e)}")
         raise

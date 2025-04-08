@@ -86,7 +86,6 @@ def get_character_for_position(row, col):
             get_character_for_position.warned_indices = set()
         if (row, col) not in get_character_for_position.warned_indices:
             logging.error(f"인덱스 {index}가 범위를 벗어남 (크기 {len(korean_chars)}). 행={row}, 열={col}")
-            get_character_for_position.warned_indices.add((row, col))
             sys.exit(1)
         return f"unknown_{index+1}"
 
@@ -170,7 +169,7 @@ def crop_glyphs_from_image(image_path, base_output_dir, verbose=True):
                         logging.error(f"  리사이징 이미지 저장 실패: {save_err}")
             except Exception as e:
                 logging.error(f"  이미지 리사이징 실패: {e}")
-                return 0, 1
+                sys.exit(1)
             
         # 디버그 이미지 생성
         if DEBUG_MODE:
@@ -203,10 +202,10 @@ def crop_glyphs_from_image(image_path, base_output_dir, verbose=True):
                     char_path = os.path.join(glyph_output_dir, char_filename)
                     try: 
                         final_glyph.save(char_path, "JPEG", quality=95)
-                        logging.info(f"    저장: {char_filename} (문자 '{char}' | 행={row}, 열={col})")
+                        logging.info(f"저장: {char_filename} (문자 '{char}' | 행={row}, 열={col})")
                         num_glyphs += 1
                     except Exception as save_err: 
-                        logging.error(f"    글리프 저장 오류: {save_err}")
+                        logging.error(f"글리프 저장 오류: {save_err}")
                         sys.exit(1)
                 else: 
                     logging.warning(f"  크롭 건너뜀: 범위 벗어남 ({left},{top})-({right},{bottom}) for '{char}'")
@@ -232,8 +231,8 @@ def process_all_templates(input_dir, output_dir, verbose=True):
     template_paths.extend(glob.glob(os.path.join(input_dir, "*.png")))
     
     if not template_paths: 
-        logging.warning(f"{input_dir}에서 이미지를 찾을 수 없습니다.")
-        return
+        logging.error(f"{input_dir}에서 이미지를 찾을 수 없습니다.")
+        sys.exit(1)
     
     template_paths.sort()
     
@@ -294,12 +293,10 @@ def load_korean_chars():
             logging.info(f"한글 문자 {len(korean_chars)}개 로드 완료")
         else:
             logging.error(f"'korean_chars' 목록이 없거나 형식이 잘못됨")
-            korean_chars = None
             sys.exit(1)
             
     except Exception as e:
         logging.error(f"문자 목록 로딩 오류: {e}")
-        korean_chars = None
         sys.exit(1)
 
 if __name__ == "__main__":
