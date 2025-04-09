@@ -10,8 +10,8 @@ router = APIRouter()
 @router.post("/font")
 async def create_font(request: FontRequest):
     font_name = request.font_name
-    member_id = request.member_id
-    font_id = request.font_id
+    member_id = str(request.member_id)
+    font_id = str(request.font_id)
     request_id = request.request_uuid
     author = request.author
     

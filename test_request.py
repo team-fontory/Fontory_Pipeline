@@ -8,9 +8,9 @@ def send_font_request(font_name: str = "TestFont"):
     api_url = "http://localhost:8000/font"
     headers = {"Content-Type": "application/json"}
     payload = {
-        config.FONT_ID_KEY: font_name,
-        config.MEMBER_ID_KEY: "213123",
-        config.FONT_NAME_KEY: "testFontName",
+        config.FONT_ID_KEY: 2313,
+        config.MEMBER_ID_KEY: 213123,
+        config.FONT_NAME_KEY: font_name,
         config.TEMPLATE_URL_KEY: "https://....",
         config.AUTHOR_KEY: "author",
         config.REQUEST_UUID_KEY: "sadsadsa"

@@ -61,5 +61,5 @@ def cleanup_intermediate_results(font_name: str, logger):
             except Exception as e:
                 logger.error(f"삭제 실패: {dir_path} - {e}")
         else:
-            logger.info(f"  삭제 건너뜀 (존재하지 않음): {dir_path}")
+            logger.info(f"삭제 건너뜀 (존재하지 않음): {dir_path}")
     logger.info("중간 결과물 정리 완료.")

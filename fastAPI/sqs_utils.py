@@ -80,10 +80,10 @@ def poll_sqs():
             body = validation_SQS_message(messages)
             logging.info(f"[SQS] Parsed message body: {body}")
             
-            font_id = body.get(FONT_ID_KEY)
+            font_id = str(body.get(FONT_ID_KEY))
             font_name = body.get(FONT_NAME_KEY)
             template_url = body.get(TEMPLATE_URL_KEY)
-            request_member_id = body.get(MEMBER_ID_KEY)
+            request_member_id = str(body.get(MEMBER_ID_KEY))
             requestUUID = body.get(REQUEST_UUID_KEY)
             
             # for metadata
