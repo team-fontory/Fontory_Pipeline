@@ -8,6 +8,7 @@ from fastAPI.s3_utils import download_image_from_s3, upload_file_to_s3
 from fastAPI.script_utils import cleanup_intermediate_results
 from fastAPI.pipeline_runner import run_font_pipeline
 from fastAPI.logger_utils import setup_logger
+from fastAPI.prometheus_loki.prometheus_config import SQS_POLL_TOTAL, SQS_PROCESSED_MESSAGES, SQS_PROCESSING_DURATION, SQS_PROCESSING_ERRORS
 
 sqs = boto3.client(
     "sqs", 
@@ -60,6 +61,8 @@ def validation_SQS_message(msg):
 def poll_sqs():
     global no_message_logged
     while True:
+        SQS_POLL_TOTAL.inc() # SQS 폴링 시도 횟수 증가
+        
         try:
             response = sqs.receive_message(
                 QueueUrl=QUEUE_URL,
@@ -80,43 +83,48 @@ def poll_sqs():
             body = validation_SQS_message(messages)
             logging.info(f"[SQS] Parsed message body: {body}")
             
-            font_id = str(body.get(FONT_ID_KEY))
-            font_name = body.get(FONT_NAME_KEY)
-            template_url = body.get(TEMPLATE_URL_KEY)
-            request_member_id = str(body.get(MEMBER_ID_KEY))
-            requestUUID = body.get(REQUEST_UUID_KEY)
-            
-            # for metadata
-            author = body.get(AUTHOR_KEY)
-            
-            logger, log_file = setup_logger(requestUUID, request_member_id, font_id, font_name)
-            logger.info(f"폰트 생성 요청 수신: {font_name})")
-        
-            _, image_path = download_image_from_s3(request_member_id, font_name, template_url, logger)
-            logger.info(f"템플릿 다운로드 완료: {image_path}")
-            
-            # 폰트 제작 로직
-            try:
-                result_ttf_path, result_woff_path = run_font_pipeline(font_name, requestUUID, logger)
-                logger.info(f"폰트 '{font_name}' 생성 성공")
-                _, url = upload_file_to_s3(result_ttf_path, font_id + ".ttf", FONT_BUCKET_NAME, logger)
-                logger.info(f"폰트 파일 업로드 완료: {url}")
-                _, url = upload_file_to_s3(result_woff_path, font_id + ".woff", FONT_BUCKET_NAME, logger)
-                logger.info(f"웹폰트 파일 업로드 완료: {url}")
-            finally:
-                _, url = upload_file_to_s3(log_file, font_id + ".log", FONT_CREATE_LOG_BUCKET_NAME, logger)
-                logger.info(f"로그 파일 업로드 완료: {url}")
-                cleanup_intermediate_results(font_name, logger)
-        
-            #정상 요청인 경우에만 메시지 삭제
-            logger.info(f"[SQS] 메시지 삭제 요청")
-            sqs.delete_message(
-                QueueUrl=QUEUE_URL,
-                ReceiptHandle=msg["ReceiptHandle"]
-            )
-            logger.info(f"[SQS] 메시지 삭제 완료")
+            # SQS 메시지 처리 시간을 측정
+            with SQS_PROCESSING_DURATION.time():
+                font_id = str(body.get(FONT_ID_KEY))
+                font_name = body.get(FONT_NAME_KEY)
+                template_url = body.get(TEMPLATE_URL_KEY)
+                request_member_id = str(body.get(MEMBER_ID_KEY))
+                requestUUID = body.get(REQUEST_UUID_KEY)
                 
+                # for metadata
+                author = body.get(AUTHOR_KEY)
+                
+                logger, log_file = setup_logger(requestUUID, request_member_id, font_id, font_name)
+                logger.info(f"폰트 생성 요청 수신: {font_name})")
+            
+                _, image_path = download_image_from_s3(request_member_id, font_name, template_url, logger)
+                logger.info(f"템플릿 다운로드 완료: {image_path}")
+                
+                # 폰트 제작 로직
+                try:
+                    result_ttf_path, result_woff_path = run_font_pipeline(font_name, requestUUID, logger)
+                    logger.info(f"폰트 '{font_name}' 생성 성공")
+                    _, url = upload_file_to_s3(result_ttf_path, font_id + ".ttf", FONT_BUCKET_NAME, logger)
+                    logger.info(f"폰트 파일 업로드 완료: {url}")
+                    _, url = upload_file_to_s3(result_woff_path, font_id + ".woff", FONT_BUCKET_NAME, logger)
+                    logger.info(f"웹폰트 파일 업로드 완료: {url}")
+                finally:
+                    _, url = upload_file_to_s3(log_file, font_id + ".log", FONT_CREATE_LOG_BUCKET_NAME, logger)
+                    logger.info(f"로그 파일 업로드 완료: {url}")
+                    cleanup_intermediate_results(font_name, logger)
+            
+                #정상 요청인 경우에만 메시지 삭제
+                logger.info(f"[SQS] 메시지 삭제 요청")
+                sqs.delete_message(
+                    QueueUrl=QUEUE_URL,
+                    ReceiptHandle=msg["ReceiptHandle"]
+                )
+                logger.info(f"[SQS] 메시지 삭제 완료")
+                
+                SQS_PROCESSED_MESSAGES.inc() # 정상 처리된 메시지 건수 증가
+            
         except Exception as e:
+            SQS_PROCESSING_ERRORS.inc() # 에러 발생 건수 증가
             logging.error(f"[SQS] Error occured during process messages: {e}")
         time.sleep(1)
 

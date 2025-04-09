@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 pydantic
 boto3
+prometheus_client
+python-logging-loki

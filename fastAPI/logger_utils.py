@@ -1,6 +1,6 @@
 import logging
 import os
-from fastAPI.config import LOG_DIR
+from fastAPI.config import LOG_DIR, LOKI_HANDLER
 
 class RequestIdFormatter(logging.Formatter):
     def __init__(self, fmt=None, datefmt=None, style='%', request_id=''):
@@ -31,6 +31,8 @@ def setup_logger(request_id: str, member_id: str, font_id: str, font_name: str):
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
     
+    LOKI_HANDLER.setFormatter(file_formatter)
+    logger.addHandler(LOKI_HANDLER)
     console_handler = logging.StreamHandler()
     console_formatter = RequestIdFormatter('%(asctime)s - %(levelname)s - %(message)s', request_id=short_id)
     console_handler.setFormatter(console_formatter)

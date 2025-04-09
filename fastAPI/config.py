@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from logging_loki import LokiHandler
 
 load_dotenv()  # .env 파일 로드
 
@@ -22,3 +23,12 @@ FONT_ID_KEY = "fontId"
 FONT_NAME_KEY = "fontName"
 TEMPLATE_URL_KEY = "templateURL"
 REQUEST_UUID_KEY = "requestUUID"
+
+LOKI_URL = "http://localhost:3100/loki/api/v1/push"
+
+# LokiHandler 생성 (필요한 옵션 설정)
+LOKI_HANDLER = LokiHandler(
+    url=LOKI_URL,
+    tags={"application": "fastapi"},
+    version="1"
+)

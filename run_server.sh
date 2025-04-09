@@ -50,6 +50,9 @@ echo "가상 환경 활성화됨"
 echo "필요한 패키지 설치 중 (requirements.txt)..."
 pip install -r ./fastAPI/requirements.txt
 
+# Prometheus, Loki 실행
+docker compose -f ./fastAPI/prometheus_loki/compose.yml up -d
+
 # API 서버 실행
 echo "FastAPI 서버 실행 중 (uvicorn)..."
 uvicorn fastAPI.main:app --host 0.0.0.0 --port 8000 --reload 
