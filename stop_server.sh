@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Prometheus, Loki 종료
+docker compose -f ./fastAPI/prometheus_loki/compose.yml down
+
 # 포트 8000을 사용 중인 프로세스를 찾아 종료하는 스크립트
 
 set -x
@@ -37,9 +40,5 @@ if lsof -t -i :$PORT > /dev/null; then
 else
   echo "포트 $PORT 를 사용하는 프로세스를 성공적으로 종료했습니다."
 fi
-
-
-# Prometheus, Loki 종료
-docker compose -f ./fastAPI/prometheus_loki/compose.yml down
 
 exit 0
