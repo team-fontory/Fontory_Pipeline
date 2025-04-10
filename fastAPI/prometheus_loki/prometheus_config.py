@@ -6,6 +6,12 @@ SQS_POLL_TOTAL = Counter(
     'Total number of SQS poll attempts'
 )
 
+# SQS에서 전달 받은 메시지 횟수를 기록
+SQS_RECEIVED_MESSAGES = Counter(
+    'sqs_received_messages_total',
+    'Total number of SQS messages received'
+)
+
 # 성공적으로 처리한 메시지 수 (삭제되기 전의 정상 처리 건수)
 SQS_PROCESSED_MESSAGES = Counter(
     'sqs_processed_messages_total', 

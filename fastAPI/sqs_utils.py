@@ -8,7 +8,7 @@ from fastAPI.s3_utils import download_image_from_s3, upload_file_to_s3
 from fastAPI.script_utils import cleanup_intermediate_results
 from fastAPI.pipeline_runner import run_font_pipeline
 from fastAPI.logger_utils import setup_logger
-from fastAPI.prometheus_loki.prometheus_config import SQS_POLL_TOTAL, SQS_PROCESSED_MESSAGES, SQS_PROCESSING_DURATION, SQS_PROCESSING_ERRORS
+from fastAPI.prometheus_loki.prometheus_config import SQS_POLL_TOTAL, SQS_PROCESSED_MESSAGES, SQS_PROCESSING_DURATION, SQS_PROCESSING_ERRORS, SQS_RECEIVED_MESSAGES
 
 sqs = boto3.client(
     "sqs", 
@@ -69,6 +69,7 @@ def poll_sqs():
                 MaxNumberOfMessages=1,
                 WaitTimeSeconds=10
             )
+            
             messages = response.get("Messages", [])
             if not messages:
                 if not no_message_logged:
@@ -76,6 +77,7 @@ def poll_sqs():
                     no_message_logged = True
                 continue
             
+            SQS_RECEIVED_MESSAGES.inc()
             no_message_logged = False
             msg = messages[0]
             logging.info(f"[SQS] Received raw message: {msg}")
