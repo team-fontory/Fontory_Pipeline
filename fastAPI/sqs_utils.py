@@ -67,7 +67,7 @@ def poll_sqs():
             response = sqs.receive_message(
                 QueueUrl=QUEUE_URL,
                 MaxNumberOfMessages=1,
-                WaitTimeSeconds=10
+                WaitTimeSeconds=20
             )
             
             messages = response.get("Messages", [])

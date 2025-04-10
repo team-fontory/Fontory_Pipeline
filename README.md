@@ -79,6 +79,11 @@ pipeline/                    # 프로젝트 루트 디렉토리
 │   ├── models.py            # 데이터 모델 정의
 │   ├── s3_utils.py          # S3 관련 유틸리티
 │   ├── sqs_utils.py         # SQS 관련 유틸리티
+│   ├── prometheus_loki/     # Prometheus 및 Loki 모니터링 설정
+│   │   ├── compose.yml      # 모니터링 서비스 Docker Compose 파일
+│   │   ├── prometheus.config # Prometheus 설정 파일
+│   │   ├── prometheus_api.py # Prometheus API 통합 코드
+│   │   └── prometheus_config.py # Prometheus 설정 관리
 │   └── .env                 # 환경 변수 설정 파일
 │
 ├── resource/                # 프로젝트 리소스 파일
@@ -168,6 +173,7 @@ chmod +X ./*.sh
 - 필요한 디렉토리 구조 생성
 - Python 가상 환경 설정
 - 의존성 패키지 설치
+- Prometheus 및 Loki 모니터링 서비스 시작 (Docker Compose 사용)
 - FastAPI 서버 실행
 
 ### 3. 폰트 생성 요청
@@ -197,7 +203,7 @@ curl -X POST "http://localhost:8000/font" \
 
 AWS SQS 큐에서 메시지를 받아와 파이프라인을 실행합니다. 이 방식은 **템플릿 다운로드 + 폰트 생성 + 폰트 및 로그 S3 업로드**를 모두 수행합니다.
 
-AWS CLI를 사용하여 메시지를 보낼 수 있습니다. `.env` 파일에 설정된 `QUEUE_URL`을 사용해야 합니다.
+AWS CLI 혹은 AWS 콘솔을 통해 직접 SQS에 메시지를 보낼 수 있습니다. `.env` 파일에 설정된 `QUEUE_URL`을 사용해야 합니다.
 
 (참고: AWS CLI를 사용하려면 AWS 자격 증명 설정이 필요합니다. `aws configure` 명령어나 환경 변수 등을 통해 설정할 수 있습니다.)
 
@@ -225,6 +231,30 @@ aws sqs send-message --queue-url YOUR_SQS_QUEUE_URL \
 ```bash
 ./stop_server.sh
 ```
+
+이 명령어는 다음 작업을 수행합니다:
+- Prometheus 및 Loki 모니터링 서비스 중지 (Docker Compose 사용)
+- 포트 8000에서 실행 중인 FastAPI 서버 프로세스 종료
+
+## 모니터링 시스템
+
+이 프로젝트는 애플리케이션 모니터링을 위해 Prometheus와 Loki를 통합했습니다:
+
+### Prometheus
+
+- 메트릭 수집 및 모니터링을 위한 오픈소스 시스템
+- 포트 9090에서 접근 가능 (http://localhost:9090/prometheus)
+- API 요청 수, 응답 시간, 오류율 등의 메트릭 수집
+
+### Loki
+
+- 로그 집계 시스템
+- 포트 3100에서 접근 가능
+- 애플리케이션 로그를 중앙 집중식으로 저장 및 조회 가능
+
+모니터링 서비스는 Docker Compose를 통해 관리되며, `run_server.sh` 및 `stop_server.sh` 스크립트에 통합되어 있습니다.
+
+**참고:** Prometheus와 Loki는 Grafana의 데이터 소스로 추가하여 사용할 수 있습니다. Grafana에서 Prometheus(9090 포트)와 Loki(3100 포트)를 데이터 소스로 등록하면 메트릭과 로그 데이터를 시각화하고 모니터링 대시보드를 구성할 수 있습니다.
 
 ## API 명세
 
