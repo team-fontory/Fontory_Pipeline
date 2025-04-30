@@ -4,6 +4,7 @@ import urllib.parse
 import logging
 import imghdr
 import boto3
+from PIL import Image
 from fastAPI.config import PROJECT_ROOT, AWS_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
 from typing import Tuple, Optional
 
@@ -49,11 +50,18 @@ def download_image_from_s3(memberId: str, font_name:str, url: str, logger: loggi
         urllib.request.urlretrieve(url, download_path)
         
         # Verify that the downloaded file is actually an image
-        img_type = imghdr.what(download_path)
-        if img_type is None:
+        try:
+            with Image.open(download_path) as img:
+                img.verify()
+        except Exception as e:
             os.remove(download_path)
-            logger.error(f"Downloaded file is not an image: {url}")
-            raise ValueError(f"Downloaded file is not an image: {url}")
+            logger.error(f"Downloaded file is not a valid image: {url}, reason: {e}")
+            raise ValueError(f"Downloaded file is not a valid image: {url}")
+        # img_type = imghdr.what(download_path)
+        # if img_type is None:
+        #     os.remove(download_path)
+        #     logger.error(f"Downloaded file is not an image: {url}")
+        #     raise ValueError(f"Downloaded file is not an image: {url}")
             
         logger.info(f"Successfully downloaded and verified image: {unique_filename}")
         return True, download_path

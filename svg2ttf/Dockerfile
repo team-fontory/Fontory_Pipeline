@@ -9,9 +9,15 @@ ENV PYTHONIOENCODING=UTF-8
 RUN apt-get update && apt-get install -y --no-install-recommends \
     fontforge \
     python3 \
+    python3-pip \
+    python3-fontforge \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the conversion script
 COPY svg_to_ttf_converter.py /app/
@@ -23,4 +29,5 @@ RUN mkdir -p /app/input_svg /app/output_ttf
 RUN chmod +x /app/svg_to_ttf_converter.py
 
 # Set the entrypoint to run the FontForge script
-ENTRYPOINT ["fontforge", "-script", "/app/svg_to_ttf_converter.py"]
+# ENTRYPOINT ["fontforge", "-script", "/app/svg_to_ttf_converter.py"]
+ENTRYPOINT ["python3", "/app/svg_to_ttf_converter.py"]

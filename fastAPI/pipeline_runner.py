@@ -34,5 +34,5 @@ def run_font_pipeline(font_name: str, request_id: str, logger):
     
     logger.info(f"폰트 '{font_name}' 생성 파이프라인이 성공적으로 완료되었습니다.")
     result_ttf_path = os.path.join(os.getcwd(), "result", "4_fonts", f"{font_name}.ttf")
-    result_woff_path = os.path.join(os.getcwd(), "result", "4_fonts", f"{font_name}.woff")
+    result_woff_path = os.path.join(os.getcwd(), "result", "4_fonts", f"{font_name}.woff2")
     return result_ttf_path, result_woff_path

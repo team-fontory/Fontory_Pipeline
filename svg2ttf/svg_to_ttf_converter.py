@@ -9,6 +9,8 @@ import os
 import glob
 import fontforge
 import logging
+import psMat
+from fontTools.ttLib.woff2 import compress
 
 logging.basicConfig(
     level=logging.INFO,
@@ -110,7 +112,30 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
             # SVG 외곽선 가져오기
             logging.debug(f"SVG 외곽선 로드 시작: '{svg_filename}'")
             glyph.importOutlines(svg_filename)
+
+            # ─────── 스케일링 처리 시작 ───────
+            xmin, ymin, xmax, ymax = glyph.boundingBox()
+            current_height = ymax - ymin
+            target_height = font.ascent + abs(font.descent)
+
+            extra_scale = 0.95
+            scale = (target_height / current_height) * extra_scale
+
+    
+            # 2) 스케일 적용 (가로/세로 동일)
+            glyph.transform(psMat.scale(scale))
+    
+            glyph.transform(psMat.translate(0, -ymin * scale + abs(font.descent)))
+    
+            # 4) 바운딩 박스 재계산
+            xmin2, ymin2, xmax2, ymax2 = glyph.boundingBox()
+            new_width = xmax2 - xmin2
+    
+            glyph.transform(psMat.translate(-xmin2, 0))
+            glyph.width = int(new_width)
             
+            # ─────── 스케일링 처리 끝 ───────
+
             # 외곽선 로드 후 정보 기록
             contour_count = 0
             point_count = 0
@@ -152,8 +177,8 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
             logging.debug(f"극점 추가 완료")
             
             # 너비 설정
-            logging.debug(f"너비 설정: {font.em}")
-            glyph.width = font.em
+            # logging.debug(f"너비 설정: {font.em}")
+            # glyph.width = font.em
             
             # 최적화 후 정보 재기록
             contour_count_after = 0
@@ -168,7 +193,11 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
             imported_count += 1
 
         except Exception as e:
-            logging.error(f"오류: 글리프 '{char}' (U+{unicode_val:04X if unicode_val!=-1 else 'N/A'}) 처리 오류: {e}")
+            # logging.error(f"오류: 글리프 '{char}' (U+{unicode_val:04X if unicode_val!=-1 else 'N/A'}) 처리 오류: {e}")
+            if unicode_val != -1:
+                logging.error(f"오류: 글리프 '{char}' (U+{unicode_val:04X}) 처리 오류: {e}")
+            else:
+                logging.error(f"오류: 글리프 '{char}' 처리 오류: {e}")
             skipped_count += 1
             # 오류 발생 시 부분적으로 생성된 글리프 제거
             if glyph is not None and unicode_val != -1 and unicode_val in font:
@@ -185,21 +214,6 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
         
     logging.info(f"가져오기 결과: 총 {len(svg_files)}개 중 {imported_count}개 성공, {skipped_count}개 실패")
 
-    # 기본 폰트 병합 (선택 사항)
-    if base_font_path and os.path.exists(base_font_path):
-        try:
-            logging.info(f"기본 폰트 병합 시작: {base_font_path}")
-            # 병합 전 글리프 수 기록
-            pre_merge_count = len(list(font.glyphs()))
-            font.mergeFonts(base_font_path)
-            # 병합 후 글리프 수 기록
-            post_merge_count = len(list(font.glyphs()))
-            logging.info(f"기본 폰트 병합 완료: {post_merge_count - pre_merge_count}개 글리프 추가됨 (총 {post_merge_count}개)")
-        except Exception as e:
-            logging.error(f"오류: 기본 폰트 병합 실패: {e}")
-    elif base_font_path:
-        logging.warning(f"경고: 기본 폰트 파일을 찾을 수 없습니다: {base_font_path}")
-
     # 출력 디렉토리 확인 및 생성
     logging.info(f"폰트 파일 생성 준비 중")
     output_dir = os.path.dirname(output_ttf_abs)
@@ -214,22 +228,133 @@ def main(input_dir_abs, output_ttf_abs, font_name, family_name, style_name, base
             logging.critical(f"오류: 출력 디렉토리 생성 실패: {e}")
             os.chdir(original_dir)
             sys.exit(1)
+            
+    
+    # if base_font_path and os.path.exists(base_font_path):
+    #     try:
+    #         logging.info(f"기본 폰트 병합 시작: {base_font_path}")
+    #         # 병합 전 글리프 수 기록
+    #         pre_merge_count = len(list(font.glyphs()))
+    #         font.mergeFonts(base_font_path)
+    #         # 병합 후 글리프 수 기록
+    #         post_merge_count = len(list(font.glyphs()))
+    #         logging.info(f"기본 폰트 병합 완료: {post_merge_count - pre_merge_count}개 글리프 추가됨 (총 {post_merge_count}개)")
+    #     except Exception as e:
+    #         logging.error(f"오류: 기본 폰트 병합 실패: {e}")
+    # elif base_font_path:
+    #     logging.warning(f"경고: 기본 폰트 파일을 찾을 수 없습니다: {base_font_path}")
+    # # 기본 폰트 병합
+    if base_font_path and os.path.exists(base_font_path):
+        try:
+            logging.info(f"기본 폰트 병합 시작 : {base_font_path}")
+            base = fontforge.open(base_font_path)
+
+            base_scale = font.em / base.em
+
+            GROUP_SCALE = {
+              'Jamo':   0.80,   # 자모
+              'Latin':  1.20,   # 영문
+              'Punct':  1.00,   # 구두점·기호
+            }
+            
+            punct_scale = base_scale * GROUP_SCALE.get('Punct', 0.95)
+            
+            for g in base.glyphs():
+                uv = g.unicode
+                if uv is None or uv < 0:
+                    continue
+
+                # 1) shape 스케일: 특수문자는 punct_scale 사용
+                if 0x1100 <= uv <= 0x11FF:
+                    s = base_scale * GROUP_SCALE['Jamo']
+                elif (0x0041 <= uv <= 0x005A) or (0x0061 <= uv <= 0x007A):
+                    s = base_scale * GROUP_SCALE['Latin']
+                else:
+                    s = punct_scale
+                g.transform(psMat.scale(s))
+
+                # 3) 베이스라인(descent) 정렬
+                # g.transform(psMat.translate(0, abs(font.descent)))
+                
+                x0, y0, x1, y1 = g.boundingBox()
+                g.transform(psMat.translate(0, -y0 + abs(font.descent)))
+
+                # 4) 좌측 정렬 & 실제 폭으로 width 설정
+                x0, y0, x1, y1 = g.boundingBox()
+                w = int(x1 - x0)
+                g.transform(psMat.translate(-x0, 0))
+                g.width = w
+
+            tmp_path = os.path.join(output_dir, "__tmp_scaled_base.ttf")
+            base.generate(tmp_path)
+            base.close()
+
+            pre = len(list(font.glyphs()))
+            font.mergeFonts(tmp_path)
+            post = len(list(font.glyphs()))
+            logging.info(f"병합 완료: {post-pre}개 글리프 추가 (총 {post}개)")
+
+            # 10) 임시 파일 삭제
+            os.remove(tmp_path)
+
+            # space (U+0020)를 EM의 50% 폭으로
+            if 0x20 in font:
+                font[0x20].width = int(font.em * 0.5)
+
+            # ',', '.', '?', '!' 등을 EM의 40% 폭으로
+            for code in [0x2C, 0x2E, 0x3F, 0x21]:
+                if code in font:
+                    g = font[code]
+                    # 1) 폭 설정
+                    g.width = int(font.em * 0.4)
+                    # 2) 왼쪽 정렬: 바운딩박스 xmin값만큼 왼쪽으로 이동
+                    xmin, ymin, xmax, ymax = g.boundingBox()
+                    g.transform(psMat.translate(-xmin, 0))
+            
+        except Exception as e:
+            logging.error(f"오류: 기본 폰트 병합 실패: {e}")
 
     # 폰트 파일 생성 (TTF, WOFF)
-    extensions = [".ttf", ".woff"]
     generated_files = []
+    logging.info(f"폰트 파일 생성 시작")
+    
+    
+    ext = ".ttf"
+    output_path = os.path.join(output_dir, output_basename + ext)
+    logging.info(f"{ext.upper()} 파일 생성 시작: {output_path}")
+    try:
+        font.generate(output_path, flags=())
+        file_size = os.path.getsize(output_path)
+        generated_files.append((output_path, file_size))
+        logging.info(f"{ext.upper()} 파일 생성 완료: {file_size:,} 바이트")
+    except Exception as e:
+        logging.error(f"오류: {ext.upper()} 생성 실패: {e}")
+    
+    ext = ".woff2"
+    output_path = os.path.join(output_dir, output_basename + ext)
+    logging.info(f"{ext.upper()} 파일 생성 시작: {output_path}")
+    try:
+        compress(generated_files[0][0], output_path)
+        file_size = os.path.getsize(output_path)
+        generated_files.append((output_path, file_size))
+        logging.info(f"{ext.upper()} 파일 생성 완료: {file_size:,} 바이트")
+    except Exception as e:
+        logging.error(f"오류: {ext.upper()} 생성 실패: {e}")  
+        
+    # extensions = [".ttf", ".woff"]
+    # generated_files = []
 
-    logging.info(f"폰트 파일 생성 시작 (총 {len(extensions)}개 형식)")
-    for ext in extensions:
-        output_path = os.path.join(output_dir, output_basename + ext)
-        logging.info(f"{ext.upper()} 파일 생성 시작: {output_path}")
-        try:
-            font.generate(output_path, flags=())
-            file_size = os.path.getsize(output_path)
-            generated_files.append((output_path, file_size))
-            logging.info(f"{ext.upper()} 파일 생성 완료: {file_size:,} 바이트")
-        except Exception as e:
-            logging.error(f"오류: {ext.upper()} 생성 실패: {e}")
+    # logging.info(f"폰트 파일 생성 시작 (총 {len(extensions)}개 형식)")
+    # for ext in extensions:
+    #     output_path = os.path.join(output_dir, output_basename + ext)
+    #     logging.info(f"{ext.upper()} 파일 생성 시작: {output_path}")
+    #     try:
+    #         font.generate(output_path, flags=())
+    #         file_size = os.path.getsize(output_path)
+    #         generated_files.append((output_path, file_size))
+    #         logging.info(f"{ext.upper()} 파일 생성 완료: {file_size:,} 바이트")
+    #     except Exception as e:
+    #         logging.error(f"오류: {ext.upper()} 생성 실패: {e}")
 
     # 원래 디렉토리로 복귀
     os.chdir(original_dir)

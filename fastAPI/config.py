@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from logging_loki import LokiHandler
+from enum import Enum
 
 load_dotenv()  # .env 파일 로드
 
@@ -32,3 +33,13 @@ LOKI_HANDLER = LokiHandler(
     tags={"application": "fastapi"},
     version="1"
 )
+
+BACKEND_URL = os.getenv("BACKEND_URL")
+FONT_PORGRESS_URI = os.getenv("FONT_PORGRESS_URI")
+FONT_PORGRESS_URI_METHOD = os.getenv("FONT_PORGRESS_URI_METHOD")
+JWT_TOKEN = os.getenv("JWT_TOKEN")
+
+class FONT_STATUS(Enum):
+    PROGRESS = 1
+    DONE = 2
+    FAILED = 3

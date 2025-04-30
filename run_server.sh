@@ -23,10 +23,10 @@ echo "로그 및 결과 디렉토리 확인/생성 완료"
 # 로그 디렉토리 권한 확보 및 기존 로그 파일 정리
 echo "로그 디렉토리 권한 확인 및 정리..."
 chmod u+w $LOG_DIR || echo "경고: 로그 디렉토리 권한 변경 실패. 계속 진행합니다."
-ls $LOG_DIR/*.log 2>/dev/null | while read -r logfile; do
-    echo "기존 로그 파일 삭제 시도: $logfile"
-    rm -f "$logfile" || echo "경고: 로그 파일 '$logfile' 삭제 실패. 권한 문제일 수 있습니다."
-done
+# ls $LOG_DIR/*.log 2>/dev/null | while read -r logfile; do
+#     echo "기존 로그 파일 삭제 시도: $logfile"
+#     rm -f "$logfile" || echo "경고: 로그 파일 '$logfile' 삭제 실패. 권한 문제일 수 있습니다."
+# done
 
 # 스크립트에 실행 권한 부여
 chmod +x ./scripts/*.sh
