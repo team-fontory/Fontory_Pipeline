@@ -113,6 +113,8 @@ AWS_SECRET_KEY=your_aws_secret_key
 QUEUE_URL=your_sqs_queue_url
 FONT_BUCKET_NAME=your_font_bucket_name
 FONT_CREATE_LOG_BUCKET_NAME=your_log_bucket_name
+FONT_ENG_NAME=영문 폰트명 (예: "MyHandwriting")  
+CDN_URL=이미지 CDN 베이스 URL (예: "https://cdn.example.com/")
 ```
 
 - `AWS_REGION`: 사용하는 AWS 리전 (예: `ap-northeast-2`)
@@ -121,6 +123,8 @@ FONT_CREATE_LOG_BUCKET_NAME=your_log_bucket_name
 - `QUEUE_URL`: 폰트 생성 요청을 처리할 SQS 큐의 URL
 - `FONT_BUCKET_NAME`: 생성된 폰트 파일을 업로드할 S3 버킷 이름
 - `FONT_CREATE_LOG_BUCKET_NAME`: 로그 파일을 업로드할 S3 버킷 이름
+- `FONT_ENG_NAME`: 영문 폰트명 (예: "MyHandwriting")
+- `CDN_URL`: 이미지 CDN 베이스 URL (예: "https://cdn.example.com/")
 
 ### AWS 권한 요구사항
 
@@ -192,7 +196,8 @@ curl -X POST "http://localhost:8000/font" \
      -d '{
        "fontId": "231", 
        "memberId": "213123", 
-       "fontName": "testFontName", 
+       "fontName": "폰트한글이름", 
+       "fontEngName": "testFontNameEng",
        "templateURL": "https://....", 
        "author": "author", 
        "requestUUID": "550e8400-e29b-41d4-a716-446655440000"
@@ -213,7 +218,8 @@ aws sqs send-message --queue-url YOUR_SQS_QUEUE_URL \
        "memberId": "213123",
        "author": "author",
        "fontId": "231",
-       "fontName": "testFontName",
+       "fontName": "폰트한글이름",
+       "fontEngName": "testFontNameEng"
        "templateURL": "https://....",
        "requestUUID": "550e8400-e29b-41d4-a716-446655440000"
      }' \
@@ -267,9 +273,10 @@ aws sqs send-message --queue-url YOUR_SQS_QUEUE_URL \
 {
   "fontId": "231",
   "memberId": "213123",
-  "fontName": "testFontName",
+  "fontName": "폰트한글이름",
   "templateURL": "https://....",
   "author": "author",
+  "fontEngName": "testFontNameEng",
   "requestUUID": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
@@ -295,8 +302,9 @@ SQS 큐에 메시지를 전송하면 완전한 파이프라인(템플릿 다운�
   "memberId": "213123",
   "author": "author",
   "fontId": "231",
-  "fontName": "testFontName",
+  "fontName": "폰트한글이름",
   "templateURL": "https://....",
+  "fontEngName": "testFontNameEng",
   "requestUUID": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
