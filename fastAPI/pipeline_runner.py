@@ -1,7 +1,7 @@
 import os
 from fastAPI.script_utils import run_script
 
-def run_font_pipeline(font_name: str, request_id: str, logger):
+def run_font_pipeline(font_name: str, font_eng_name:str, request_id: str, logger):
     logger.info(f"폰트 생성 파이프라인 시작...")
     
     crop_script = os.path.join(os.getcwd(), "scripts", "1_crop_glyphs.sh")
@@ -27,7 +27,7 @@ def run_font_pipeline(font_name: str, request_id: str, logger):
     
     svg2ttf_script = os.path.join(os.getcwd(), "scripts", "4_run_svg2ttf.sh")
     logger.info("SVG에서 TTF/WOFF 변환 스크립트 실행 중...")
-    success, error = run_script(svg2ttf_script, ["-f", font_name], logger, "TTF/WOFF")
+    success, error = run_script(svg2ttf_script, ["-f", font_name, "-e", font_eng_name], logger, "TTF/WOFF")
     if not success:
         logger.error(f"SVG에서 TTF/WOFF 변환 실패: {error}")
         raise Exception(f"SVG에서 TTF/WOFF 변환 실패: {error}")

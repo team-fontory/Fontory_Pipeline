@@ -23,8 +23,10 @@ no_message_logged = False
 # 메시지 키 상수를 정의합니다.
 MEMBER_ID_KEY = "memberId"
 AUTHOR_KEY = "author"
+FONT_FILE_KEY = "fileKey"
 FONT_ID_KEY = "fontId"
 FONT_NAME_KEY = "fontName"
+FONT_ENG_NAME_KEY= "fontEngName"
 TEMPLATE_URL_KEY = "templateURL"
 REQUEST_UUID_KEY = "requestUUID"
 
@@ -32,13 +34,14 @@ REQUEST_UUID_KEY = "requestUUID"
 # {
 #   "fontId": "231",
 #   "memberId": "213123",
+#   "fileKey": "uuid..."
 #   "fontName": "testFontName",
 #   "templateURL": "https://....",
 #   "author": "author",
 #   "requestUUID": "sadsadsa"
 # }
 
-sqs_message_properties = [FONT_ID_KEY, MEMBER_ID_KEY, FONT_NAME_KEY, TEMPLATE_URL_KEY, AUTHOR_KEY, REQUEST_UUID_KEY]
+sqs_message_properties = [FONT_ID_KEY, FONT_FILE_KEY, MEMBER_ID_KEY, FONT_NAME_KEY, FONT_ENG_NAME_KEY, TEMPLATE_URL_KEY, AUTHOR_KEY, REQUEST_UUID_KEY]
 
 def validation_SQS_message(msg):
     try:
@@ -89,7 +92,9 @@ def poll_sqs():
             # SQS 메시지 처리 시간을 측정
             with SQS_PROCESSING_DURATION.time():
                 font_id = str(body.get(FONT_ID_KEY))
+                font_file_key = str(body.get(FONT_FILE_KEY))
                 font_name = body.get(FONT_NAME_KEY)
+                font_eng_name = body.get(FONT_ENG_NAME_KEY)
                 template_url = body.get(TEMPLATE_URL_KEY)
                 request_member_id = str(body.get(MEMBER_ID_KEY))
                 requestUUID = body.get(REQUEST_UUID_KEY)
@@ -102,7 +107,7 @@ def poll_sqs():
                 author = body.get(AUTHOR_KEY)
                 
                 logger, log_file = setup_logger(requestUUID, request_member_id, font_id, font_name)
-                logger.info(f"폰트 생성 요청 수신: {font_name})")
+                logger.info(f"폰트 생성 요청 수신: {font_name}")
             
                 # 전체 처리 로직 시작
                 try:
@@ -111,14 +116,14 @@ def poll_sqs():
                     logger.info(f"템플릿 다운로드 완료: {image_path}")
                 
                     # 폰트 제작 로직
-                    result_ttf_path, result_woff_path = run_font_pipeline(font_name, requestUUID, logger)
+                    result_ttf_path, result_woff_path = run_font_pipeline(font_name, font_eng_name, requestUUID, logger)
                     logger.info(f"폰트 '{font_name}' 생성 성공")
                     
                     # 폰트 파일 S3업로드 
-                    _, ttf_s3_url = upload_file_to_s3(result_ttf_path, font_id + ".ttf", FONT_BUCKET_NAME, logger)
+                    _, ttf_s3_url = upload_file_to_s3(result_ttf_path, "fonts/" + font_file_key + ".ttf", FONT_BUCKET_NAME, logger)
                     logger.info(f"폰트 파일 업로드 완료: {ttf_s3_url}")
                     
-                    _, woff_s3_url = upload_file_to_s3(result_woff_path, font_id + ".woff2", FONT_BUCKET_NAME, logger)
+                    _, woff_s3_url = upload_file_to_s3(result_woff_path, "fonts/" + font_file_key + ".woff2", FONT_BUCKET_NAME, logger)
                     logger.info(f"웹폰트 파일 업로드 완료: {woff_s3_url}")
                     
                     ## 백엔드 서버에 폰트 생성 결과 PATCH 요청

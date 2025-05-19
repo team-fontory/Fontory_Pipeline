@@ -5,7 +5,7 @@ import logging
 import imghdr
 import boto3
 from PIL import Image
-from fastAPI.config import PROJECT_ROOT, AWS_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
+from fastAPI.config import PROJECT_ROOT, AWS_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY, CDN_URL
 from typing import Tuple, Optional
 
 # S3 클라이언트 생성
@@ -17,13 +17,10 @@ s3_client = boto3.client(
 )
 
 def is_s3_image_url(url: str) -> bool:
-    # Check if URL is from S3
-    if not ('s3.amazonaws.com' in url or 's3.ap-northeast-2.amazonaws.com' in url):
-        return False
-        
+    return url.startswith(CDN_URL)
     # Check if URL ends with common image extensions
-    img_extensions = ['.jpg', '.jpeg', '.png']
-    return any(url.lower().endswith(ext) for ext in img_extensions)
+    # img_extensions = ['.jpg', '.jpeg', '.png']
+    # return any(url.lower().endswith(ext) for ext in img_extensions)
 
 def download_image_from_s3(memberId: str, font_name:str, url: str, logger: logging.Logger) -> Tuple[bool, Optional[str]]:
     if not is_s3_image_url(url):
